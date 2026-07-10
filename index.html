@@ -91,7 +91,26 @@
 
     <footer class="max-w-4xl mx-auto mt-12 pt-6 border-t border-gray-300 text-center text-sm text-gray-500">
         <p>© 2025 John Riordan. Data from Cork City Council Open Data Portal.</p>
+        <p class="mt-2">
+            <a href="#" id="privacy-link" class="text-gray-500 hover:text-gray-700 underline">Privacy Policy</a>
+        </p>
     </footer>
+
+    <!-- Custom Privacy Modal -->
+    <div id="privacy-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center">
+      <div class="bg-white p-8 rounded-xl max-w-md w-full mx-4 shadow-2xl relative">
+        <button id="close-modal" class="absolute top-4 right-4 bg-none border-none text-2xl cursor-pointer text-gray-400 hover:text-gray-600">&times;</button>
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Privacy Policy</h2>
+        <div class="text-sm leading-relaxed text-gray-600 space-y-3">
+          <p><strong>1. No Personal Data:</strong> We do not collect names, emails, or precise location data.</p>
+          <p><strong>2. Local Storage:</strong> Your preferences and session settings are stored securely on your own device, whether used on the web or as an installed app.</p>
+          <p><strong>3. Data Fetching:</strong> This app fetches live data directly from the Cork City Council Open Data Portal without storing or transmitting your activity.</p>
+          <div class="pt-4 border-t border-gray-200 mt-4">
+            <strong>Contact:</strong> <a href="mailto:john@john-riordan.ie" class="text-teal-600 hover:underline">john@john-riordan.ie</a>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <script>
         const API_URL = 'https://data.corkcity.ie/api/3/action/datastore_search';
@@ -448,6 +467,28 @@
             console.log('Cork Parking app was installed successfully.');
             if (installBtn) {
                 installBtn.classList.add('hidden');
+            }
+        });
+
+        const modal = document.getElementById('privacy-modal');
+        const privacyLink = document.getElementById('privacy-link');
+        const closeBtn = document.getElementById('close-modal');
+
+        privacyLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        });
+
+        closeBtn.addEventListener('click', () => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
             }
         });
 
