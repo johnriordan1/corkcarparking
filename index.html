@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cork City Parking Availability</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f766e">
+    <link rel="apple-touch-icon" href="pwa_icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Cork Parking">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f8f8;
+        }
+        .park-card-link {
+            text-decoration: none;
+            display: block;
+        }
+        .park-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            height: 100%;
+        }
+        .park-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.15), 0 5px 10px -5px rgba(0, 0, 0, 0.05);
+        }
+        .park-card-link:focus .park-card {
+            outline: 3px solid #f97316;
+            outline-offset: 4px;
+        }
+        .loading {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 sm:p-8">
+
+    <header class="max-w-4xl mx-auto mb-8 text-center">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-2 tracking-tight">Cork City Parking Monitor</h1>
+        <p class="text-gray-600 text-lg">
+            Live parking availability data from Cork City Council
+        </p>
+        <p class="text-sm font-medium text-gray-500 mt-2">
+            Last Updated: <span id="last-updated-time" class="font-semibold text-gray-800">Loading...</span>
+        </p>
+        
+        <div class="flex flex-wrap justify-center gap-4 mt-6">
+            
+            <button 
+                onclick="togglePeriodicSpeak()" 
+                id="toggle-speak-btn"
+                class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Toggle automatic speaking of car park availability"
+                disabled>
+                🎙️ Auto-Speech
+            </button>
+
+            <button 
+                id="install-pwa-btn"
+                class="hidden bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-teal-300"
+                aria-label="Install Cork City Parking Monitor application">
+                📲 Install App
+            </button>
+            
+        </div>
+        
+        <div class="flex flex-col items-center mt-4 space-y-1">
+            <p id="speech-status" class="text-sm font-bold text-gray-600 hidden">Auto-Speech: OFF</p>
+            <p id="wakelock-status" class="text-sm font-bold text-gray-500">Screen Lock: ⏳ Waiting for interaction...</p>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto">
+        <div id="error-message" class="hidden mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert"></div>
+        
+        <section id="parking-list" class="grid grid-cols-1 md:grid-cols-2 gap-6" aria-live="polite" aria-label="Cork City Car Parks Availability and Navigation">
+            <div class="col-span-full text-center text-gray-500 loading">
+                <p class="text-xl">Loading parking data...</p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="max-w-4xl mx-auto mt-12 pt-6 border-t border-gray-300 text-center text-sm text-gray-500">
+        <p>© 2025 John Riordan. Data from Cork City Council Open Data Portal.</p>
+    </footer>
+
+    <script>
+        const API_URL = 'https://data.corkcity.ie/api/3/action/datastore_search';
+        const RESOURCE_ID = 'f4677dac-bb30-412e-95a8-d3c22134e3c0';
+        const MAPS_BASE_URL = "https://www.google.com/maps/search/?api=1&query=";
+        const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000; 
+        
+        let parkingData = [];
+        let jsonpCallbackCounter = 0;
+        let autoSpeakIntervalId = null; 
+
+        // --- WAKE LOCK VARIABLES ---
+        let wakeLock = null;
+
+        // Mapping for Google Maps Plus Codes
+        const mapCodes = {
+            'Paul Street': 'WG2F+3V Cork',
+            'Paul Street Car Park': 'WG2F+3V Cork',
+            'North Main Street': 'VGWF+R8 Cork',
+            'North Main Street Car Park': 'VGWF+R8 Cork',
+            'Black Ash Park & Ride': 'VGM5+8Q Cork',
+            'Black Ash Park and Ride': 'VGM5+8Q Cork',
+            'Blackash': 'VGM5+8Q Cork',
+            'Merchants Quay': 'VGWF+P4 Cork',
+            'Merchants Quay Car Park': 'VGWF+P4 Cork',
+            'City Hall': 'VGW9+M7 Cork',
+            'Cornmarket Street': 'VGW9+M7 Cork',
+            'Carrolls Quay': 'VGXF+7C Cork',
+            'Carrolls Quay Car Park': 'VGXF+7C Cork',
+            "Saint Finbarr's": 'VGR9+3P Cork',
+            "St Finbarr's Car Park": 'VGR9+3P Cork',
+            'Grand Parade': 'VGV9+V9 Cork',
+            'Grand Parade Car Park': 'VGV9+V9 Cork'
+        };
+
+        // --- AUTOMATIC WAKE LOCK LOGIC ---
+
+        async function activateWakeLock() {
+            // If already active, do nothing
+            if (wakeLock !== null) return;
+
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    updateWakeLockStatus(true);
+
+                    // If the user minimizes the app and comes back, re-activate
+                    wakeLock.addEventListener('release', () => {
+                        updateWakeLockStatus(false);
+                        wakeLock = null;
+                    });
+
+                } catch (err) {
+                    console.log("Wake Lock request failed (likely needs user gesture):", err.name, err.message);
+                    updateWakeLockStatus(false);
+                }
+            } else {
+                console.warn("Wake Lock API not supported.");
+            }
+        }
+
+        function updateWakeLockStatus(active) {
+            const statusEl = document.getElementById('wakelock-status');
+            if (active) {
+                // If active, hide the element to display no text
+                statusEl.textContent = '';
+                statusEl.classList.add('hidden'); 
+            } else {
+                // If inactive, show the element and the inactive message
+                statusEl.classList.remove('hidden');
+                statusEl.textContent = 'Screen Lock: INACTIVE (Tap screen to activate)';
+                statusEl.classList.remove('text-green-600', 'text-gray-500');
+                statusEl.classList.add('text-red-500');
+            }
+        }
+
+        // --- GLOBAL EVENT LISTENERS ---
+        
+        // 1. Try to activate immediately on load (Might fail on iOS/Chrome, but worth a try)
+        document.addEventListener('DOMContentLoaded', () => {
+             activateWakeLock();
+        });
+
+        // 2. The Fallback: Activate on the very first touch/click anywhere on the page
+        // This is the key "Automatic" feeling. As soon as they use the app, it locks.
+        const interactionEvents = ['click', 'touchstart', 'keydown', 'scroll'];
+        
+        function handleFirstInteraction() {
+            activateWakeLock();
+            // Once activated, we can remove these listeners to save performance
+            interactionEvents.forEach(event => {
+                document.removeEventListener(event, handleFirstInteraction);
+            });
+        }
+
+        interactionEvents.forEach(event => {
+            document.addEventListener(event, handleFirstInteraction, { once: true });
+        });
+
+        // 3. Re-activate if they tab out and come back
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible') {
+                activateWakeLock();
+            }
+        });
+
+        // --- EXISTING PARKING LOGIC ---
+
+        function togglePeriodicSpeak() {
+            const buttonEl = document.getElementById('toggle-speak-btn');
+            const statusEl = document.getElementById('speech-status');
+
+            if (autoSpeakIntervalId) {
+                clearInterval(autoSpeakIntervalId);
+                autoSpeakIntervalId = null;
+                buttonEl.textContent = '🎙️ Auto-Speech';
+                buttonEl.classList.remove('bg-teal-600', 'hover:bg-teal-700', 'focus:ring-teal-300');
+                buttonEl.classList.add('bg-gray-500', 'hover:bg-gray-600', 'focus:ring-gray-300');
+                statusEl.textContent = 'Auto-Speech: OFF';
+                statusEl.classList.remove('text-teal-600');
+                statusEl.classList.add('text-gray-600');
+                window.speechSynthesis.cancel(); 
+            } else {
+                speakBestOption(); 
+                autoSpeakIntervalId = setInterval(speakBestOption, AUTO_REFRESH_INTERVAL);
+                buttonEl.textContent = '🔇 Stop Speech';
+                buttonEl.classList.remove('bg-gray-500', 'hover:bg-gray-600', 'focus:ring-gray-300');
+                buttonEl.classList.add('bg-teal-600', 'hover:bg-teal-700', 'focus:ring-teal-300');
+                statusEl.textContent = 'Auto-Speech: ON (Every 5 mins)';
+                statusEl.classList.remove('text-gray-600');
+                statusEl.classList.add('text-teal-600');
+            }
+        }
+
+        function fetchParkingData() {
+            try {
+                showError('');
+                const callbackName = 'jsonpCallback_' + (jsonpCallbackCounter++);
+                
+                window[callbackName] = function(data) {
+                    if (data.success && data.result && data.result.records) {
+                        processParkingData(data.result.records);
+                    } else {
+                        showError('No parking data available from API');
+                    }
+                    delete window[callbackName];
+                    document.body.removeChild(script);
+                };
+                
+                const params = new URLSearchParams({
+                    resource_id: RESOURCE_ID,
+                    limit: 100,
+                    callback: callbackName
+                });
+                
+                const script = document.createElement('script');
+                script.src = `${API_URL}?${params.toString()}`;
+                script.onerror = function() {
+                    showError('Failed to load parking data. Please try again.');
+                    delete window[callbackName];
+                    document.body.removeChild(script);
+                };
+                
+                document.body.appendChild(script);
+                
+            } catch (error) {
+                console.error('Error fetching parking data:', error);
+                showError('Unable to load parking data. Error: ' + error.message);
+            }
+        }
+
+        function processParkingData(records) {
+            parkingData = records.map((row, index) => {
+                const name = row.Name || row.name || row.CarParkName || row.car_park_name || 
+                             row.Facility || row.facility || row.Location || row.location || 
+                             row.CarPark || row.carpark || row['Car Park'] || 'Unknown';
+                
+                const total = parseInt(row.Capacity ?? row.capacity ?? row.Total ?? row.total ?? 
+                                         row.MaxSpaces ?? row.max_spaces ?? row.TotalSpaces ?? row.total_spaces ??
+                                         row.MaxCapacity ?? row.max_capacity ?? 0);
+                
+                const available = parseInt(row.free_spaces ?? row.FreeSpaces ?? row.Available ?? row.available ?? 
+                                             row.Spaces ?? row.spaces ?? row.AvailableSpaces ?? 
+                                             row.available_spaces ?? row.Free ?? row.free ??
+                                             row.FreeBays ?? row.free_bays ?? row['Free Bays'] ??
+                                             row.CurrentSpaces ?? row.current_spaces ?? row['Current Spaces'] ?? 0);
+                
+                let mapCode = mapCodes[name] || `${name}, Cork City`;
+                const lat = row.Latitude || row.latitude || row.lat || row.Lat;
+                const lon = row.Longitude || row.longitude || row.lon || row.Long || row.long;
+                
+                if (lat && lon) {
+                    mapCode = `${lat},${lon}`;
+                }
+                
+                return {
+                    id: row._id || index + 1,
+                    name: name,
+                    total: total,
+                    available: available,
+                    mapCode: mapCode,
+                    rawData: row 
+                };
+            }).filter(park => park.total > 0 || park.available >= 0); 
+            
+            if (parkingData.length > 0) {
+                renderParks();
+                document.getElementById('toggle-speak-btn').disabled = false;
+            } else {
+                showError('No valid parking data found. Check console for details.');
+            }
+        }
+
+        function renderParks() {
+            const sortedData = parkingData.slice().sort((a, b) => b.available - a.available);
+            const maxAvailable = sortedData.length > 0 ? sortedData[0].available : 0;
+
+            const container = document.getElementById('parking-list');
+            if (!container) return;
+
+            container.innerHTML = '';
+            
+            sortedData.forEach(park => {
+                const isBestOption = park.available === maxAvailable && maxAvailable > 0;
+                const percentage = park.total > 0 ? Math.round((park.available / park.total) * 100) : 0;
+                const isFull = park.available === 0;
+                
+                let cardClasses = 'park-card p-6 rounded-xl shadow-lg border border-gray-100 flex flex-col justify-between';
+                
+                if (isBestOption) {
+                    cardClasses += ' bg-teal-50 ring-2 ring-teal-400'; 
+                } else if (isFull) {
+                    cardClasses += ' bg-gray-50 opacity-90'; 
+                } else {
+                    cardClasses += ' bg-white';
+                }
+                
+                const mapsUrl = MAPS_BASE_URL + encodeURIComponent(park.mapCode);
+
+                const link = document.createElement('a');
+                link.href = mapsUrl;
+                link.target = "_blank";
+                link.className = 'park-card-link';
+                link.setAttribute('aria-label', `View ${park.name} on Google Maps. ${park.available.toLocaleString()} spaces available.`);
+
+                link.innerHTML = `
+                    <div class="${cardClasses}">
+                        <div class="flex items-start">
+                            <span class="text-4xl mr-4 mt-1" aria-hidden="true">${isFull ? '🔴' : '🅿️'}</span>
+                            <div class="flex-grow">
+                                <h2 class="text-2xl font-bold text-gray-800">${park.name}</h2>
+
+                                <div class="text-4xl font-extrabold mt-3" role="status">
+                                    <span class="${isFull ? 'text-red-600' : 'text-gray-800'}">${isFull ? 'FULL' : park.available.toLocaleString()}</span>
+                                    ${!isFull && park.total > 0 ? `<span class="text-lg font-medium text-gray-500">/ ${park.total.toLocaleString()}</span>` : ''}
+                                    ${!isFull && park.total === 0 ? '<span class="text-lg font-medium text-gray-500">available</span>' : ''}
+                                </div>
+                                
+                                ${park.total > 0 && !isFull ? `
+                                <div class="mt-2">
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                        <div class="bg-green-600 h-2.5 rounded-full" style="width: ${percentage}%"></div>
+                                    </div>
+                                    <p class="text-sm text-gray-600 mt-1">${percentage}% available</p>
+                                </div>
+                                ` : ''}
+
+                                ${isBestOption ? '<p class="text-sm font-semibold text-teal-600 mt-2">BEST OPTION</p>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(link);
+            });
+
+            const now = new Date();
+            const timeString = now.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' at ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('last-updated-time').textContent = timeString;
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            if (message) {
+                errorDiv.textContent = message;
+                errorDiv.classList.remove('hidden');
+            } else {
+                errorDiv.classList.add('hidden');
+            }
+        }
+
+        function speakBestOption() {
+            if (parkingData.length === 0) return;
+            
+            const availableParks = parkingData.filter(park => park.available > 0);
+            
+            if (availableParks.length === 0) {
+                 const message = "Attention, all car parks currently monitored appear to be full.";
+                 if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(message);
+                    window.speechSynthesis.cancel();
+                    window.speechSynthesis.speak(utterance);
+                 }
+                 return;
+            }
+
+            const bestPark = availableParks.reduce((max, park) => 
+                park.available > max.available ? park : max
+            );
+
+            const message = `The car park with the most availability is ${bestPark.name} with ${bestPark.available.toLocaleString()} spaces available.`;
+
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(message);
+                utterance.rate = 0.9;
+                utterance.pitch = 1.0;
+                utterance.volume = 1.0;
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        // --- PWA INSTALLATION AND SERVICE WORKER REGISTRATION ---
+        let deferredPrompt;
+        const installBtn = document.getElementById('install-pwa-btn');
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('Service Worker registered successfully:', reg.scope))
+                    .catch(err => console.error('Service Worker registration failed:', err));
+            });
+        }
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            if (installBtn) {
+                installBtn.classList.remove('hidden');
+            }
+        });
+
+        if (installBtn) {
+            installBtn.addEventListener('click', async () => {
+                if (!deferredPrompt) return;
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`User response to the install prompt: ${outcome}`);
+                deferredPrompt = null;
+                installBtn.classList.add('hidden');
+            });
+        }
+
+        window.addEventListener('appinstalled', (evt) => {
+            console.log('Cork Parking app was installed successfully.');
+            if (installBtn) {
+                installBtn.classList.add('hidden');
+            }
+        });
+
+        window.onload = function() {
+            fetchParkingData();
+            setInterval(fetchParkingData, AUTO_REFRESH_INTERVAL);
+            document.getElementById('speech-status').classList.remove('hidden');
+            
+            // Try to activate wake lock on load
+            activateWakeLock();
+        };
+    </script>
+
+</body>
+</html>
