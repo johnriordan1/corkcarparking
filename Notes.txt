@@ -1,6 +1,0 @@
-Merchants Quay stuck on 215 spaces.
-Button needed for info to show opening times and prices.
-Auto speech should sync with real time update.
-Need app in full screen.
-Text readout is seven one one for a number instead of seven hundred and eleven.
-Include exact Google plus codes for app.
