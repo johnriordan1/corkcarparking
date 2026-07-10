@@ -265,8 +265,8 @@
                 showError('');
                 
                 // Cache check: 5-minute TTL
-                const cachedData = localStorage.getItem('cork_parking_data');
-                const cachedTime = localStorage.getItem('cork_parking_timestamp');
+                const cachedData = sessionStorage.getItem('cork_parking_data');
+                const cachedTime = sessionStorage.getItem('cork_parking_timestamp');
                 
                 if (cachedData && cachedTime && (Date.now() - parseInt(cachedTime) < 5 * 60 * 1000)) {
                     console.log('Using cached parking data (less than 5 mins old)');
@@ -279,8 +279,8 @@
                 window[callbackName] = function(data) {
                     if (data.success && data.result && data.result.records) {
                         const now = Date.now();
-                        localStorage.setItem('cork_parking_data', JSON.stringify(data.result.records));
-                        localStorage.setItem('cork_parking_timestamp', now.toString());
+                        sessionStorage.setItem('cork_parking_data', JSON.stringify(data.result.records));
+                        sessionStorage.setItem('cork_parking_timestamp', now.toString());
                         processParkingData(data.result.records, now);
                     } else {
                         showError('No parking data available from API');
