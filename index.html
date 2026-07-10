@@ -135,6 +135,7 @@
         let parkingData = [];
         let jsonpCallbackCounter = 0;
         let autoSpeakIntervalId = null; 
+        let lastFetchTime = null;
 
         // --- WAKE LOCK VARIABLES ---
         let wakeLock = null;
@@ -262,11 +263,25 @@
         function fetchParkingData() {
             try {
                 showError('');
+                
+                // Cache check: 5-minute TTL
+                const cachedData = localStorage.getItem('cork_parking_data');
+                const cachedTime = localStorage.getItem('cork_parking_timestamp');
+                
+                if (cachedData && cachedTime && (Date.now() - parseInt(cachedTime) < 5 * 60 * 1000)) {
+                    console.log('Using cached parking data (less than 5 mins old)');
+                    processParkingData(JSON.parse(cachedData), parseInt(cachedTime));
+                    return;
+                }
+
                 const callbackName = 'jsonpCallback_' + (jsonpCallbackCounter++);
                 
                 window[callbackName] = function(data) {
                     if (data.success && data.result && data.result.records) {
-                        processParkingData(data.result.records);
+                        const now = Date.now();
+                        localStorage.setItem('cork_parking_data', JSON.stringify(data.result.records));
+                        localStorage.setItem('cork_parking_timestamp', now.toString());
+                        processParkingData(data.result.records, now);
                     } else {
                         showError('No parking data available from API');
                     }
@@ -296,7 +311,8 @@
             }
         }
 
-        function processParkingData(records) {
+        function processParkingData(records, timestamp) {
+            lastFetchTime = timestamp || Date.now();
             parkingData = records.map((row, index) => {
                 const name = row.Name || row.name || row.CarParkName || row.car_park_name || 
                              row.Facility || row.facility || row.Location || row.location || 
@@ -400,8 +416,8 @@
                 container.appendChild(link);
             });
 
-            const now = new Date();
-            const timeString = now.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' at ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const displayTime = lastFetchTime ? new Date(lastFetchTime) : new Date();
+            const timeString = displayTime.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' at ' + displayTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             document.getElementById('last-updated-time').textContent = timeString;
         }
 
