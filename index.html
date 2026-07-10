@@ -344,7 +344,7 @@
                     mapCode: mapCode,
                     rawData: row 
                 };
-            }).filter(park => park.total > 0 || park.available >= 0); 
+            }).filter(park => (park.total > 0 || park.available >= 0) && !park.name.toLowerCase().includes("merchants quay")); 
             
             if (parkingData.length > 0) {
                 renderParks();
