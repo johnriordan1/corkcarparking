@@ -539,15 +539,21 @@
                         return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
                     }
 
+                    const CURRENT_SW_VERSION = 'cork-parking-v25';
+
                     function promptUpdate(worker) {
                         if (!isPWA()) return;
                         if (!navigator.serviceWorker.controller) return;
-                        
-                        // Ignore prompt on initial PWA session load right after installation
-                        if (!sessionStorage.getItem('pwa_session_active')) {
-                            sessionStorage.setItem('pwa_session_active', 'true');
+
+                        // First install: record version without showing toast
+                        const storedVersion = localStorage.getItem('sw_installed_version');
+                        if (!storedVersion) {
+                            localStorage.setItem('sw_installed_version', CURRENT_SW_VERSION);
                             return;
                         }
+
+                        // Same version already seen — no update to show
+                        if (storedVersion === CURRENT_SW_VERSION) return;
 
                         waitingWorker = worker;
                         const updateToast = document.getElementById('update-toast');
@@ -556,8 +562,9 @@
                         }
                     }
 
-                    if (isPWA() && !sessionStorage.getItem('pwa_session_active')) {
-                        sessionStorage.setItem('pwa_session_active', 'true');
+                    // Ensure version is recorded on first load even if no waiting worker
+                    if (!localStorage.getItem('sw_installed_version')) {
+                        localStorage.setItem('sw_installed_version', CURRENT_SW_VERSION);
                     }
 
                     if (reg.waiting && navigator.serviceWorker.controller) {
@@ -587,6 +594,7 @@
             if (reloadBtn) {
                 reloadBtn.addEventListener('click', () => {
                     if (waitingWorker) {
+                        localStorage.setItem('sw_installed_version', CURRENT_SW_VERSION);
                         waitingWorker.postMessage({ type: 'SKIP_WAITING' });
                     } else {
                         window.location.reload();
