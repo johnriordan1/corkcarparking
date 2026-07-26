@@ -535,10 +535,14 @@
                 navigator.serviceWorker.register('sw.js').then(reg => {
                     console.log('Service Worker registered successfully:', reg.scope);
 
+                    function isPWA() {
+                        return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+                    }
+
                     function promptUpdate(worker) {
                         waitingWorker = worker;
                         const updateToast = document.getElementById('update-toast');
-                        if (updateToast) {
+                        if (updateToast && isPWA()) {
                             updateToast.classList.remove('hidden');
                         }
                     }
