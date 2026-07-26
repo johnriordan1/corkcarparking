@@ -540,6 +540,7 @@
                     }
 
                     function promptUpdate(worker) {
+                        if (!navigator.serviceWorker.controller) return;
                         waitingWorker = worker;
                         const updateToast = document.getElementById('update-toast');
                         if (updateToast && isPWA()) {
@@ -547,7 +548,7 @@
                         }
                     }
 
-                    if (reg.waiting) {
+                    if (reg.waiting && navigator.serviceWorker.controller) {
                         promptUpdate(reg.waiting);
                     }
 
