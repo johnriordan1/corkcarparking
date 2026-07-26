@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cork-parking-v9';
+const CACHE_NAME = 'cork-parking-v10';
 const ASSETS = [
   'index.html',
   'manifest.json',
@@ -9,12 +9,17 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', event => {
-  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       return cache.addAll(ASSETS);
     })
   );
+});
+
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('activate', event => {
