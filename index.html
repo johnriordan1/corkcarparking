@@ -541,7 +541,7 @@
                         return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
                     }
 
-                    const CURRENT_SW_VERSION = 'cork-parking-v31';
+                    const CURRENT_SW_VERSION = 'cork-parking-v32';
 
                     function promptUpdate(worker) {
                         if (!isPWA()) return;
@@ -595,9 +595,17 @@
             const reloadBtn = document.getElementById('reload-app-btn');
             if (reloadBtn) {
                 reloadBtn.addEventListener('click', () => {
+                    localStorage.setItem('sw_installed_version', CURRENT_SW_VERSION);
                     if (waitingWorker) {
-                        localStorage.setItem('sw_installed_version', CURRENT_SW_VERSION);
                         waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+                    } else if (navigator.serviceWorker) {
+                        navigator.serviceWorker.getRegistration().then(reg => {
+                            if (reg && reg.waiting) {
+                                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                            } else {
+                                window.location.reload();
+                            }
+                        }).catch(() => window.location.reload());
                     } else {
                         window.location.reload();
                     }
