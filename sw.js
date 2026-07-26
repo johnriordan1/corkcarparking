@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cork-parking-v24';
+const CACHE_NAME = 'cork-parking-v25';
 const ASSETS = [
   'index.html',
   'manifest.json',

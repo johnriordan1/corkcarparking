@@ -540,12 +540,24 @@
                     }
 
                     function promptUpdate(worker) {
+                        if (!isPWA()) return;
                         if (!navigator.serviceWorker.controller) return;
+                        
+                        // Ignore prompt on initial PWA session load right after installation
+                        if (!sessionStorage.getItem('pwa_session_active')) {
+                            sessionStorage.setItem('pwa_session_active', 'true');
+                            return;
+                        }
+
                         waitingWorker = worker;
                         const updateToast = document.getElementById('update-toast');
-                        if (updateToast && isPWA()) {
+                        if (updateToast) {
                             updateToast.classList.remove('hidden');
                         }
+                    }
+
+                    if (isPWA() && !sessionStorage.getItem('pwa_session_active')) {
+                        sessionStorage.setItem('pwa_session_active', 'true');
                     }
 
                     if (reg.waiting && navigator.serviceWorker.controller) {
