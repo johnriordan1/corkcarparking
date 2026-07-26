@@ -1,8 +1,11 @@
-const CACHE_NAME = 'cork-parking-v2';
+const CACHE_NAME = 'cork-parking-v5';
 const ASSETS = [
   'index.html',
   'manifest.json',
-  'pwa_icon.png'
+  'icon-192.png',
+  'icon-512.png',
+  'apple-touch-icon.png',
+  'maskable-icon-512.png'
 ];
 
 self.addEventListener('install', event => {

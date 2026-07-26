@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0f766e">
-    <link rel="apple-touch-icon" href="pwa_icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Cork Parking">
@@ -23,7 +23,6 @@
         .park-card {
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             cursor: pointer;
-            height: 100%;
         }
         .park-card:hover {
             transform: translateY(-4px);
@@ -82,7 +81,7 @@
     <main class="max-w-4xl mx-auto">
         <div id="error-message" class="hidden mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert"></div>
         
-        <section id="parking-list" class="grid grid-cols-1 md:grid-cols-2 gap-6" aria-live="polite" aria-label="Cork City Car Parks Availability and Navigation">
+        <section id="parking-list" class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start" aria-live="polite" aria-label="Cork City Car Parks Availability and Navigation">
             <div class="col-span-full text-center text-gray-500 loading">
                 <p class="text-xl">Loading parking data...</p>
             </div>
@@ -144,21 +143,26 @@
         const mapCodes = {
             'Paul Street': 'WG2F+3V Cork',
             'Paul Street Car Park': 'WG2F+3V Cork',
-            'North Main Street': 'VGWF+R8 Cork',
-            'North Main Street Car Park': 'VGWF+R8 Cork',
-            'Black Ash Park & Ride': 'VGM5+8Q Cork',
-            'Black Ash Park and Ride': 'VGM5+8Q Cork',
-            'Blackash': 'VGM5+8Q Cork',
+            'North Main Street': 'WG2C+9W Cork',
+            'North Main Street Car Park': 'WG2C+9W Cork',
+            'Black Ash Park & Ride': 'VGHM+67 Cork',
+            'Black Ash Park and Ride': 'VGHM+67 Cork',
+            'Blackash': 'VGHM+67 Cork',
             'Merchants Quay': 'VGWF+P4 Cork',
             'Merchants Quay Car Park': 'VGWF+P4 Cork',
-            'City Hall': 'VGW9+M7 Cork',
+            'City Hall': 'VGWP+M7 Cork',
+            'City Hall - Eglington Street': 'VGWP+M7 Cork',
+            'City Hall - Eglington Street Car Park': 'VGWP+M7 Cork',
+            'City Hall Car Park': 'VGWP+M7 Cork',
             'Cornmarket Street': 'VGW9+M7 Cork',
-            'Carrolls Quay': 'VGXF+7C Cork',
-            'Carrolls Quay Car Park': 'VGXF+7C Cork',
-            "Saint Finbarr's": 'VGR9+3P Cork',
-            "St Finbarr's Car Park": 'VGR9+3P Cork',
-            'Grand Parade': 'VGV9+V9 Cork',
-            'Grand Parade Car Park': 'VGV9+V9 Cork'
+            'Carrolls Quay': 'WG2H+M4 Cork',
+            'Carrolls Quay Car Park': 'WG2H+M4 Cork',
+            "Saint Finbarr's": 'VGW9+JF Cork',
+            "St Finbarr's Car Park": 'VGW9+JF Cork',
+            "Saint Finbarr's Car Park": 'VGW9+JF Cork',
+            "St. Finbarr's": 'VGW9+JF Cork',
+            'Grand Parade': 'VGWG+J6 Cork',
+            'Grand Parade Car Park': 'VGWG+J6 Cork'
         };
 
         // --- AUTOMATIC WAKE LOCK LOGIC ---
@@ -328,13 +332,9 @@
                                              row.FreeBays ?? row.free_bays ?? row['Free Bays'] ??
                                              row.CurrentSpaces ?? row.current_spaces ?? row['Current Spaces'] ?? 0);
                 
-                let mapCode = mapCodes[name] || `${name}, Cork City`;
                 const lat = row.Latitude || row.latitude || row.lat || row.Lat;
                 const lon = row.Longitude || row.longitude || row.lon || row.Long || row.long;
-                
-                if (lat && lon) {
-                    mapCode = `${lat},${lon}`;
-                }
+                let mapCode = mapCodes[name] || (lat && lon ? `${lat},${lon}` : `${name}, Cork City`);
                 
                 return {
                     id: row._id || index + 1,
