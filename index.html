@@ -32,6 +32,12 @@
             outline: 3px solid #f97316;
             outline-offset: 4px;
         }
+        /* Equalize collapsed card height on desktop */
+        @media (min-width: 768px) {
+            .card-header-section {
+                min-height: 180px;
+            }
+        }
         .loading {
             animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
@@ -63,13 +69,24 @@
                 🎙️ Auto-Speech
             </button>
 
-            <button 
-                id="install-pwa-btn"
+            <!-- Android install button (fires native prompt) -->
+            <button
+                id="install-android-btn"
                 class="hidden bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-teal-300"
-                aria-label="Install Cork City Parking Monitor application">
-                <svg class="w-5 h-5 inline-block mr-1.5 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                </svg>Install App
+                aria-label="Install Cork City Parking Monitor on Android">
+                <svg class="w-5 h-5 inline-block mr-1.5 -mt-0.5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.46 11.46 0 00-8.94 0L5.65 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L6.4 9.48A10.78 10.78 0 001 18h22a10.78 10.78 0 00-5.4-8.52zM7 15.25a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5zm10 0a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5z"></path>
+                </svg>Install for Android
+            </button>
+
+            <!-- iOS install button (opens instructions) -->
+            <button
+                id="install-ios-btn"
+                class="hidden bg-gray-800 hover:bg-gray-900 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-gray-400"
+                aria-label="How to install Cork City Parking Monitor on iPhone or iPad">
+                <svg class="w-5 h-5 inline-block mr-1.5 -mt-0.5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16.365 1.43c0 1.14-.44 2.22-1.16 3.02-.87.96-2.29 1.7-3.44 1.61-.14-1.11.42-2.28 1.11-3.03.79-.86 2.19-1.51 3.31-1.6.02.03.02.06.18 0zM20.6 17.02c-.55 1.27-.81 1.83-1.52 2.95-.99 1.56-2.38 3.5-4.1 3.51-1.53.02-1.92-.99-4-.98-2.08.01-2.51.99-4.04.97-1.72-.02-3.04-1.78-4.03-3.34C.14 15.98-.42 10.65 1.85 7.86 2.96 6.49 4.6 5.62 6.15 5.62c1.58 0 2.57 1 3.87 1 1.26 0 2.03-1 3.86-1 1.38 0 2.85.75 3.9 2.05-3.43 1.88-2.87 6.78.82 8.35z"></path>
+                </svg>Install for iOS
             </button>
             
         </div>
@@ -124,6 +141,23 @@
             <strong>Contact:</strong> <a href="mailto:john@john-riordan.ie" class="text-teal-600 hover:underline">john@john-riordan.ie</a>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- iOS Install Instructions Modal -->
+    <div id="ios-install-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center">
+      <div class="bg-white p-8 rounded-xl max-w-md w-full mx-4 shadow-2xl relative">
+        <button id="close-ios-modal" class="absolute top-4 right-4 bg-none border-none text-2xl cursor-pointer text-gray-400 hover:text-gray-600" aria-label="Close">&times;</button>
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Install on iPhone / iPad</h2>
+        <p class="text-sm text-gray-600 mb-4">Safari can't install apps automatically, but it only takes a few taps:</p>
+        <ol class="text-sm leading-relaxed text-gray-700 space-y-3 list-decimal list-inside">
+          <li>Tap the <strong>Share</strong> button
+            <svg class="w-4 h-4 inline-block -mt-0.5 mx-0.5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7M16 6l-4-4m0 0L8 6m4-4v13"></path></svg>
+            at the bottom of Safari.</li>
+          <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+          <li>Tap <strong>Add</strong> in the top-right corner.</li>
+        </ol>
+        <p class="text-xs text-gray-500 mt-4 pt-4 border-t border-gray-200">Make sure you're using <strong>Safari</strong> — other iOS browsers can't add apps to the Home Screen.</p>
       </div>
     </div>
 
@@ -407,15 +441,10 @@
                 card.setAttribute('aria-label', `View details for ${park.name}. ${park.available.toLocaleString()} spaces available.`);
 
                 card.innerHTML = `
-                    <div class="flex items-start w-full">
+                    <div class="card-header-section flex items-start w-full">
                         <span class="text-4xl mr-4 mt-1" aria-hidden="true">${isFull ? '🔴' : '🅿️'}</span>
                         <div class="flex-grow">
-                            <div class="flex justify-between items-center">
-                                <h2 class="text-2xl font-bold text-gray-800">${park.name}</h2>
-                                <span class="text-xs font-semibold text-teal-600 border border-teal-200 bg-teal-50 px-2 py-1 rounded-md ml-2 flex items-center gap-1 shrink-0">
-                                    ℹ️ Info
-                                </span>
-                            </div>
+                            <h2 class="text-2xl font-bold text-gray-800">${park.name}</h2>
 
                             <div class="text-4xl font-extrabold mt-3" role="status">
                                 <span class="${isFull ? 'text-red-600' : 'text-gray-800'}">${isFull ? 'FULL' : park.available.toLocaleString()}</span>
@@ -433,6 +462,12 @@
                             ` : ''}
 
                             ${isBestOption ? '<p class="text-sm font-semibold text-teal-600 mt-2">BEST OPTION</p>' : ''}
+
+                            <div class="mt-4">
+                                <span class="text-xs font-semibold text-teal-600 border border-teal-200 bg-teal-50 px-2 py-1 rounded-md inline-flex items-center gap-1">
+                                    ℹ️ Info
+                                </span>
+                            </div>
                         </div>
                     </div>
                     
@@ -528,7 +563,41 @@
 
         // --- PWA INSTALLATION AND SERVICE WORKER REGISTRATION ---
         let deferredPrompt;
-        const installBtn = document.getElementById('install-pwa-btn');
+        const installAndroidBtn = document.getElementById('install-android-btn');
+        const installIosBtn = document.getElementById('install-ios-btn');
+        const iosModal = document.getElementById('ios-install-modal');
+        const closeIosModal = document.getElementById('close-ios-modal');
+
+        function isStandalone() {
+            return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        }
+        function isIOS() {
+            const ua = window.navigator.userAgent;
+            const iOSDevice = /iPad|iPhone|iPod/.test(ua);
+            // iPadOS 13+ reports as Mac; detect via touch support
+            const iPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+            return iOSDevice || iPadOS;
+        }
+
+        // Show the iOS button on Apple devices (Safari has no install prompt API)
+        if (isIOS() && !isStandalone() && installIosBtn) {
+            installIosBtn.classList.remove('hidden');
+        }
+        if (installIosBtn && iosModal) {
+            installIosBtn.addEventListener('click', () => {
+                iosModal.classList.remove('hidden');
+                iosModal.classList.add('flex');
+            });
+        }
+        function hideIosModal() {
+            if (!iosModal) return;
+            iosModal.classList.add('hidden');
+            iosModal.classList.remove('flex');
+        }
+        if (closeIosModal) closeIosModal.addEventListener('click', hideIosModal);
+        if (iosModal) {
+            iosModal.addEventListener('click', (e) => { if (e.target === iosModal) hideIosModal(); });
+        }
 
         if ('serviceWorker' in navigator) {
             let waitingWorker = null;
@@ -616,27 +685,27 @@
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            if (installBtn) {
-                installBtn.classList.remove('hidden');
+            // Android/Chromium supports a native install prompt
+            if (installAndroidBtn) {
+                installAndroidBtn.classList.remove('hidden');
             }
         });
 
-        if (installBtn) {
-            installBtn.addEventListener('click', async () => {
+        if (installAndroidBtn) {
+            installAndroidBtn.addEventListener('click', async () => {
                 if (!deferredPrompt) return;
                 deferredPrompt.prompt();
                 const { outcome } = await deferredPrompt.userChoice;
                 console.log(`User response to the install prompt: ${outcome}`);
                 deferredPrompt = null;
-                installBtn.classList.add('hidden');
+                installAndroidBtn.classList.add('hidden');
             });
         }
 
         window.addEventListener('appinstalled', (evt) => {
             console.log('Cork Parking app was installed successfully.');
-            if (installBtn) {
-                installBtn.classList.add('hidden');
-            }
+            if (installAndroidBtn) installAndroidBtn.classList.add('hidden');
+            if (installIosBtn) installIosBtn.classList.add('hidden');
         });
 
         const modal = document.getElementById('privacy-modal');
