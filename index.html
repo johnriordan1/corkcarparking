@@ -606,7 +606,7 @@
         function speakBestOption() {
             if (parkingData.length === 0) return;
             
-            const availableParks = parkingData.filter(park => park.available > 0);
+            const availableParks = parkingData.filter(park => park.available > 0 && !park.isClosed);
             
             if (availableParks.length === 0) {
                  const message = "Attention, all car parks currently monitored appear to be full.";
