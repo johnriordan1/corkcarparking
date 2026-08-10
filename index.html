@@ -361,6 +361,76 @@
                 console.error('Error fetching parking data:', error);
                 showError('Unable to load parking data. Error: ' + error.message);
             }
+
+        function isParkClosed(openingTimesStr) {
+            if (!openingTimesStr || openingTimesStr.trim() === '' || openingTimesStr.includes('24/7')) {
+                return false;
+            }
+
+            const now = new Date();
+            const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const currentDayIndex = now.getDay();
+            const currentDayName = days[currentDayIndex];
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+            const parseTimeToMinutes = (timeStr) => {
+                if (!timeStr) return null;
+                const clean = timeStr.trim().replace('.', ':');
+                const parts = clean.split(':');
+                if (parts.length < 2) return null;
+                let hrs = parseInt(parts[0], 10);
+                let mins = parseInt(parts[1], 10);
+                if (isNaN(hrs) || isNaN(mins)) return null;
+                if (hrs === 0 && mins === 0) return 24 * 60; // 00.00 midnight
+                return hrs * 60 + mins;
+            };
+
+            const segments = openingTimesStr.split(',');
+            for (let segment of segments) {
+                segment = segment.trim();
+                if (!segment) continue;
+
+                // Match format: [Days] [Open Time] - [Close Time]
+                const match = segment.match(/([A-Za-z\s\-and]+)\s+(\d{1,2}[\.\:]\d{2})\s*-\s*(\d{1,2}[\.\:]\d{2})/);
+                if (!match) continue;
+
+                const dayText = match[1].toLowerCase();
+                const openMinutes = parseTimeToMinutes(match[2]);
+                const closeMinutes = parseTimeToMinutes(match[3]);
+
+                if (openMinutes === null || closeMinutes === null) continue;
+
+                let applies = false;
+
+                // Check ranges like "Monday - Saturday" or "Monday - Thursday"
+                const rangeMatch = dayText.match(/(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s*-\s*(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/);
+                if (rangeMatch) {
+                    const startIdx = days.findIndex(d => d.toLowerCase() === rangeMatch[1]);
+                    const endIdx = days.findIndex(d => d.toLowerCase() === rangeMatch[2]);
+                    if (startIdx !== -1 && endIdx !== -1) {
+                        if (startIdx <= endIdx) {
+                            applies = currentDayIndex >= startIdx && currentDayIndex <= endIdx;
+                        } else {
+                            applies = currentDayIndex >= startIdx || currentDayIndex <= endIdx;
+                        }
+                    }
+                }
+
+                // Check specific days listed
+                if (!applies && dayText.includes(currentDayName.toLowerCase())) {
+                    applies = true;
+                }
+
+                if (applies) {
+                    if (currentMinutes < openMinutes || currentMinutes >= closeMinutes) {
+                        return true; // Closed
+                    } else {
+                        return false; // Open
+                    }
+                }
+            }
+
+            return false; // Default fail-safe: Open
         }
 
         function processParkingData(records, timestamp) {
@@ -384,11 +454,14 @@
                 const lon = row.Longitude || row.longitude || row.lon || row.Long || row.long;
                 let mapCode = mapCodes[name] || (lat && lon ? `${lat},${lon}` : `${name}, Cork City`);
                 
+                const isClosed = isParkClosed(row.opening_times);
+
                 return {
                     id: row._id || index + 1,
                     name: name,
                     total: total,
                     available: available,
+                    isClosed: isClosed,
                     mapCode: mapCode,
                     rawData: row 
                 };
@@ -403,8 +476,12 @@
         }
 
         function renderParks() {
-            const sortedData = parkingData.slice().sort((a, b) => b.available - a.available);
-            const maxAvailable = sortedData.length > 0 ? sortedData[0].available : 0;
+            const sortedData = parkingData.slice().sort((a, b) => {
+                if (a.isClosed !== b.isClosed) return a.isClosed ? 1 : -1;
+                return b.available - a.available;
+            });
+            
+            const maxAvailable = sortedData.length > 0 && !sortedData[0].isClosed ? sortedData[0].available : 0;
 
             const container = document.getElementById('parking-list');
             if (!container) return;
@@ -412,13 +489,16 @@
             container.innerHTML = '';
             
             sortedData.forEach(park => {
-                const isBestOption = park.available === maxAvailable && maxAvailable > 0;
+                const isClosed = park.isClosed;
+                const isBestOption = !isClosed && park.available === maxAvailable && maxAvailable > 0;
                 const percentage = park.total > 0 ? Math.round((park.available / park.total) * 100) : 0;
-                const isFull = park.available === 0;
+                const isFull = !isClosed && park.available === 0;
                 
                 let cardClasses = 'park-card p-6 rounded-xl shadow-lg border border-gray-100 flex flex-col justify-between cursor-pointer transition-all hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-teal-500';
                 
-                if (isBestOption) {
+                if (isClosed) {
+                    cardClasses += ' bg-gray-100 opacity-75';
+                } else if (isBestOption) {
                     cardClasses += ' bg-teal-50 ring-2 ring-teal-400'; 
                 } else if (isFull) {
                     cardClasses += ' bg-gray-50 opacity-90'; 
@@ -437,21 +517,24 @@
                 card.setAttribute('tabindex', '0');
                 card.setAttribute('role', 'button');
                 card.setAttribute('aria-expanded', 'false');
-                card.setAttribute('aria-label', `View details for ${park.name}. ${park.available.toLocaleString()} spaces available.`);
+                card.setAttribute('aria-label', `View details for ${park.name}. ${isClosed ? 'Closed' : park.available.toLocaleString() + ' spaces available'}.`);
+
+                const statusIcon = isClosed ? '🔒' : (isFull ? '🔴' : '🅿️');
+                const statusText = isClosed ? '<span class="text-gray-500 font-bold">CLOSED</span>' : `<span class="${isFull ? 'text-red-600' : 'text-gray-800'}">${isFull ? 'FULL' : park.available.toLocaleString()}</span>`;
 
                 card.innerHTML = `
                     <div class="card-header-section flex items-start w-full">
-                        <span class="text-4xl mr-4 mt-1" aria-hidden="true">${isFull ? '🔴' : '🅿️'}</span>
+                        <span class="text-4xl mr-4 mt-1" aria-hidden="true">${statusIcon}</span>
                         <div class="flex-grow">
                             <h2 class="text-2xl font-bold text-gray-800">${park.name}</h2>
 
                             <div class="text-4xl font-extrabold mt-3" role="status">
-                                <span class="${isFull ? 'text-red-600' : 'text-gray-800'}">${isFull ? 'FULL' : park.available.toLocaleString()}</span>
-                                ${!isFull && park.total > 0 ? `<span class="text-lg font-medium text-gray-500">/ ${park.total.toLocaleString()}</span>` : ''}
-                                ${!isFull && park.total === 0 ? '<span class="text-lg font-medium text-gray-500">available</span>' : ''}
+                                ${statusText}
+                                ${!isClosed && !isFull && park.total > 0 ? `<span class="text-lg font-medium text-gray-500">/ ${park.total.toLocaleString()}</span>` : ''}
+                                ${!isClosed && !isFull && park.total === 0 ? '<span class="text-lg font-medium text-gray-500">available</span>' : ''}
                             </div>
                             
-                            ${park.total > 0 && !isFull ? `
+                            ${!isClosed && park.total > 0 && !isFull ? `
                             <div class="mt-2">
                                 <div class="w-full bg-gray-200 rounded-full h-2.5">
                                     <div class="bg-green-600 h-2.5 rounded-full" style="width: ${percentage}%"></div>
@@ -461,6 +544,7 @@
                             ` : ''}
 
                             ${isBestOption ? '<p class="text-sm font-semibold text-teal-600 mt-2">BEST OPTION</p>' : ''}
+                            ${isClosed ? '<p class="text-sm font-semibold text-gray-500 mt-2">CLOSED OUTSIDE OPERATING HOURS</p>' : ''}
 
                             <div class="mt-4">
                                 <span class="text-xs font-semibold text-teal-600 border border-teal-200 bg-teal-50 px-2 py-1 rounded-md inline-flex items-center gap-1">
@@ -468,6 +552,7 @@
                                 </span>
                             </div>
                         </div>
+                    </div>`;>
                     </div>
                     
                     <!-- Expanded Details -->
