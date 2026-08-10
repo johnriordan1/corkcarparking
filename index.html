@@ -160,18 +160,7 @@
       </div>
     </div>
 
-    <!-- Update Available Notification Banner -->
-    <div id="update-toast" class="hidden fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-gray-900 text-white p-4 rounded-xl shadow-2xl z-50 flex items-center justify-between space-x-4 border border-gray-700">
-      <div class="flex items-center space-x-3">
-        <div>
-          <p class="font-bold text-sm">Update Available</p>
-          <p class="text-xs text-gray-300">A new version of the app is ready!</p>
-        </div>
-      </div>
-      <button id="reload-app-btn" class="bg-teal-500 hover:bg-teal-600 text-white font-semibold text-xs px-4 py-2 rounded-lg transition duration-150 shrink-0">
-        Update Now
-      </button>
-    </div>
+
 
     <script>
         const API_URL = 'https://data.corkcity.ie/api/3/action/datastore_search';
@@ -683,61 +672,9 @@
             iosModal.addEventListener('click', (e) => { if (e.target === iosModal) hideIosModal(); });
         }
 
-        const CURRENT_SW_VERSION = 'cork-parking-v35';
-
         if ('serviceWorker' in navigator) {
-            let waitingWorker = null;
-
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js').then(reg => {
-                    console.log('Service Worker registered successfully:', reg.scope);
-
-                    function isPWA() {
-                        return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-                    }
-
-                    function promptUpdate(worker) {
-                        if (!isPWA()) return;
-                        if (!navigator.serviceWorker.controller) return;
-
-                        // First install: record version without showing toast
-                        const storedVersion = localStorage.getItem('sw_installed_version');
-                        if (!storedVersion) {
-                            localStorage.setItem('sw_installed_version', CURRENT_SW_VERSION);
-                            return;
-                        }
-
-                        // Same version already seen — no update to show
-                        if (storedVersion === CURRENT_SW_VERSION) return;
-
-                        waitingWorker = worker;
-                        const updateToast = document.getElementById('update-toast');
-                        if (updateToast) {
-                            updateToast.classList.remove('hidden');
-                        }
-                    }
-
-                    // Ensure version is recorded on first load even if no waiting worker
-                    if (!localStorage.getItem('sw_installed_version')) {
-                        localStorage.setItem('sw_installed_version', CURRENT_SW_VERSION);
-                    }
-
-                    if (reg.waiting && navigator.serviceWorker.controller) {
-                        promptUpdate(reg.waiting);
-                    }
-
-                    reg.addEventListener('updatefound', () => {
-                        const newWorker = reg.installing;
-                        newWorker.addEventListener('statechange', () => {
-                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                promptUpdate(newWorker);
-                            }
-                        });
-                    });
-                }).catch(err => console.error('Service Worker registration failed:', err));
-            });
-
             let refreshing = false;
+
             navigator.serviceWorker.addEventListener('controllerchange', () => {
                 if (!refreshing) {
                     refreshing = true;
@@ -745,25 +682,26 @@
                 }
             });
 
-            const reloadBtn = document.getElementById('reload-app-btn');
-            if (reloadBtn) {
-                reloadBtn.addEventListener('click', () => {
-                    localStorage.setItem('sw_installed_version', CURRENT_SW_VERSION);
-                    if (waitingWorker) {
-                        waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').then(reg => {
+                    console.log('Service Worker registered successfully:', reg.scope);
+
+                    // If a new worker is already waiting, activate it immediately
+                    if (reg.waiting) {
+                        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
                     }
-                    if (navigator.serviceWorker) {
-                        navigator.serviceWorker.getRegistration().then(reg => {
-                            if (reg && reg.waiting) {
-                                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+
+                    reg.addEventListener('updatefound', () => {
+                        const newWorker = reg.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // Auto-activate the new worker silently
+                                newWorker.postMessage({ type: 'SKIP_WAITING' });
                             }
                         });
-                    }
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 300);
-                });
-            }
+                    });
+                }).catch(err => console.error('Service Worker registration failed:', err));
+            });
         }
 
         window.addEventListener('beforeinstallprompt', (e) => {
