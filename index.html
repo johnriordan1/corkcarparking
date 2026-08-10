@@ -683,6 +683,8 @@
             iosModal.addEventListener('click', (e) => { if (e.target === iosModal) hideIosModal(); });
         }
 
+        const CURRENT_SW_VERSION = 'cork-parking-v35';
+
         if ('serviceWorker' in navigator) {
             let waitingWorker = null;
 
@@ -693,8 +695,6 @@
                     function isPWA() {
                         return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
                     }
-
-                    const CURRENT_SW_VERSION = 'cork-parking-v35';
 
                     function promptUpdate(worker) {
                         if (!isPWA()) return;
