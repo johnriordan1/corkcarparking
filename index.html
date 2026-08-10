@@ -361,6 +361,7 @@
                 console.error('Error fetching parking data:', error);
                 showError('Unable to load parking data. Error: ' + error.message);
             }
+        }
 
         function isParkClosed(openingTimesStr) {
             if (!openingTimesStr || openingTimesStr.trim() === '' || openingTimesStr.includes('24/7')) {
@@ -693,7 +694,7 @@
                         return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
                     }
 
-                    const CURRENT_SW_VERSION = 'cork-parking-v34';
+                    const CURRENT_SW_VERSION = 'cork-parking-v35';
 
                     function promptUpdate(worker) {
                         if (!isPWA()) return;
