@@ -357,11 +357,27 @@
                 return false;
             }
 
+            // Always evaluate against Irish local time, not the device's timezone.
             const now = new Date();
+            const dublin = new Intl.DateTimeFormat('en-IE', {
+                timeZone: 'Europe/Dublin', weekday: 'long', hour: '2-digit', minute: '2-digit', hour12: false
+            }).formatToParts(now).reduce((acc, part) => {
+                acc[part.type] = part.value;
+                return acc;
+            }, {});
+
             const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            const currentDayIndex = now.getDay();
-            const currentDayName = days[currentDayIndex];
-            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            const currentDayIndex = days.findIndex(d => d === dublin.weekday);
+            const currentMinutes = (parseInt(dublin.hour, 10) % 24) * 60 + parseInt(dublin.minute, 10);
+
+            if (currentDayIndex === -1) return false;
+
+            // Accepts "Monday", "Mon", "Mon." etc. Returns the day index, or -1.
+            const dayNameToIndex = (token) => {
+                const clean = token.trim().toLowerCase().replace(/\.$/, '');
+                if (clean.length < 3) return -1;
+                return days.findIndex(d => d.toLowerCase().startsWith(clean.slice(0, 3)));
+            };
 
             const parseTimeToMinutes = (timeStr) => {
                 if (!timeStr) return null;
@@ -375,52 +391,59 @@
                 return hrs * 60 + mins;
             };
 
-            const segments = openingTimesStr.split(',');
-            for (let segment of segments) {
-                segment = segment.trim();
-                if (!segment) continue;
+            // Normalise unicode dashes and "to" so a single separator form is enough below.
+            const normalised = openingTimesStr
+                .replace(/[‐-―−]/g, '-')
+                .replace(/\bto\b/gi, '-');
 
-                // Match format: [Days] [Open Time] - [Close Time]
-                const match = segment.match(/([A-Za-z\s\-and]+)\s+(\d{1,2}[\.\:]\d{2})\s*-\s*(\d{1,2}[\.\:]\d{2})/);
-                if (!match) continue;
+            // Match "[Days] [Open Time] - [Close Time]" anywhere in the string. Scanning
+            // rather than splitting on commas keeps day lists ("Mon, Tue 07.00 - 20.00")
+            // attached to their times.
+            const entryPattern = /([A-Za-z][A-Za-z\s,&\-]*?)\s*(\d{1,2}[\.\:]\d{2})\s*-\s*(\d{1,2}[\.\:]\d{2})/g;
 
+            let parsedAnyEntry = false;
+
+            for (const match of normalised.matchAll(entryPattern)) {
                 const dayText = match[1].toLowerCase();
                 const openMinutes = parseTimeToMinutes(match[2]);
                 const closeMinutes = parseTimeToMinutes(match[3]);
 
                 if (openMinutes === null || closeMinutes === null) continue;
 
+                parsedAnyEntry = true;
+
                 let applies = false;
 
-                // Check ranges like "Monday - Saturday" or "Monday - Thursday"
-                const rangeMatch = dayText.match(/(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s*-\s*(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/);
+                // Ranges like "Monday - Saturday" or "Mon - Sat"
+                const rangeMatch = dayText.match(/([a-z]{3,})\s*-\s*([a-z]{3,})\s*$/);
                 if (rangeMatch) {
-                    const startIdx = days.findIndex(d => d.toLowerCase() === rangeMatch[1]);
-                    const endIdx = days.findIndex(d => d.toLowerCase() === rangeMatch[2]);
+                    const startIdx = dayNameToIndex(rangeMatch[1]);
+                    const endIdx = dayNameToIndex(rangeMatch[2]);
                     if (startIdx !== -1 && endIdx !== -1) {
-                        if (startIdx <= endIdx) {
-                            applies = currentDayIndex >= startIdx && currentDayIndex <= endIdx;
-                        } else {
-                            applies = currentDayIndex >= startIdx || currentDayIndex <= endIdx;
-                        }
+                        applies = startIdx <= endIdx
+                            ? currentDayIndex >= startIdx && currentDayIndex <= endIdx
+                            : currentDayIndex >= startIdx || currentDayIndex <= endIdx;
                     }
                 }
 
-                // Check specific days listed
-                if (!applies && dayText.includes(currentDayName.toLowerCase())) {
-                    applies = true;
+                // Individually listed days, e.g. "Monday, Tuesday & Saturday"
+                if (!applies) {
+                    applies = dayText.split(/[,&]|\band\b/).some(token => dayNameToIndex(token) === currentDayIndex);
                 }
 
                 if (applies) {
-                    if (currentMinutes < openMinutes || currentMinutes >= closeMinutes) {
-                        return true; // Closed
-                    } else {
-                        return false; // Open
-                    }
+                    // A closing time at or before the opening time runs past midnight.
+                    const closed = closeMinutes > openMinutes
+                        ? currentMinutes < openMinutes || currentMinutes >= closeMinutes
+                        : currentMinutes < openMinutes && currentMinutes >= closeMinutes;
+                    return closed;
                 }
             }
 
-            return false; // Default fail-safe: Open
+            // Hours were listed but today is not among them: closed all day.
+            if (parsedAnyEntry) return true;
+
+            return false; // Nothing parseable — fail safe to open
         }
 
         function processParkingData(records, timestamp) {
