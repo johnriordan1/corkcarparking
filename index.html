@@ -177,6 +177,9 @@
         let wakeLock = null;
 
         // Mapping for Google Maps Plus Codes
+        // Car parks to hide from the list, matched case-insensitively on name.
+        const EXCLUDED_PARKS = ['merchants quay'];
+
         const mapCodes = {
             'Paul Street': 'WG2F+3V Cork',
             'Paul Street Car Park': 'WG2F+3V Cork',
@@ -476,7 +479,8 @@
                     mapCode: mapCode,
                     rawData: row 
                 };
-            }).filter(park => park.total > 0 || park.available >= 0);
+            }).filter(park => (park.total > 0 || park.available >= 0) &&
+                !EXCLUDED_PARKS.some(excluded => park.name.toLowerCase().includes(excluded)));
             
             if (parkingData.length > 0) {
                 renderParks();
