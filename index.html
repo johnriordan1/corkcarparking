@@ -185,8 +185,6 @@
             'Black Ash Park & Ride': 'VGHM+67 Cork',
             'Black Ash Park and Ride': 'VGHM+67 Cork',
             'Blackash': 'VGHM+67 Cork',
-            'Merchants Quay': 'VGWF+P4 Cork',
-            'Merchants Quay Car Park': 'VGWF+P4 Cork',
             'City Hall': 'VGWP+M7 Cork',
             'City Hall - Eglington Street': 'VGWP+M7 Cork',
             'City Hall - Eglington Street Car Park': 'VGWP+M7 Cork',
@@ -478,7 +476,7 @@
                     mapCode: mapCode,
                     rawData: row 
                 };
-            }).filter(park => (park.total > 0 || park.available >= 0) && !park.name.toLowerCase().includes("merchants quay")); 
+            }).filter(park => park.total > 0 || park.available >= 0);
             
             if (parkingData.length > 0) {
                 renderParks();
